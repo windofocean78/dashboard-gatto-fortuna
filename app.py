@@ -1,58 +1,75 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# Configurazione stile Gatto della Fortuna
-st.set_page_config(page_title="Lucky Cat Dashboard 🐾", layout="wide")
+# Configurazione Pagina
+st.set_page_config(page_title="Gatto Fortuna Dashboard 🐾", layout="wide")
 
+# CSS per il tema Oro/Fortuna
 st.markdown("""
     <style>
     .main { background-color: #fffaf0; }
-    h1 { color: #d4af37; }
+    h1 { color: #d4af37; text-align: center; }
+    .stMetric { border: 2px solid #d4af37; padding: 10px; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
-    # Il tuo file ha una riga vuota all'inizio, quindi usiamo header=1
+    # Carichiamo il file dati.csv saltando la primissima riga inutile
+    # header=1 indica che i nomi delle colonne sono sulla seconda riga
     df = pd.read_csv('dati.csv', header=1)
+    # Puliamo i nomi delle colonne da spazi invisibili
     df.columns = [c.strip() for c in df.columns]
-    # Convertiamo la colonna Data
-    df['Data'] = pd.to_datetime(df['Data'])
     return df
 
 try:
     df = load_data()
-    st.title("🐾 Lucky Cat Jackpot Dashboard 💰")
     
-    # --- KPI SUPERIORI ---
-    ultima_riga = df.iloc[-1]
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Jackpot Totale", f"€ {ultima_riga['SOMMA JACKPOT SUPERENA8']:,.2f}")
-    c2.metric("Netto in Tasca", f"€ {ultima_riga['VALORE NETTO JACKPOT']:,.2f}")
-    c3.metric("Mensile (su 50 anni)", f"€ {ultima_riga.iloc[13]:,.2f}") # Colonna M
+    st.title("🐾 Lucky Cat Jackpot Dashboard 💰")
+    st.markdown("---")
 
-    st.divider()
+    # --- KPI (Indicatori) ---
+    # Prendiamo l'ultima riga dei dati
+    last_row = df.iloc[-1]
+    
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.metric("💰 Jackpot Attuale", f"€ {last_row['SOMMA JACKPOT SUPERENA8']:,.2f}")
+    with c2:
+        st.metric("✨ Valore Netto", f"€ {last_row['VALORE NETTO JACKPOT']:,.2f}")
+    with c3:
+        # Colonna M (Disponibilità mensile su Netto E)
+        mensile = last_row['disponibilità mensile (12 mesi) su valore Netto E']
+        st.metric("🍀 Spesa Mensile", f"€ {mensile:,.2f}")
+
+    st.markdown("---")
 
     # --- GRAFICI ---
     col_left, col_right = st.columns(2)
     
     with col_left:
         st.subheader("📈 Crescita Jackpot")
-        fig_line = px.line(df, x='Data', y='SOMMA JACKPOT SUPERENA8', color_discrete_sequence=['#FFD700'])
+        fig_line = px.line(df, x='Data', y='SOMMA JACKPOT SUPERENA8', 
+                           color_discrete_sequence=['#FFD700'], markers=True)
         st.plotly_chart(fig_line, use_container_width=True)
         
     with col_right:
-        st.subheader("🍕 Tasse vs Netto")
-        fig_pie = px.pie(names=['Netto', 'Tasse'], 
-                         values=[ultima_riga['VALORE NETTO JACKPOT'], ultima_riga['VALORE TAX DA TOGLIERE€']],
+        st.subheader("🍕 Tasse vs Netto (Oggi)")
+        netto = last_row['VALORE NETTO JACKPOT']
+        tasse = last_row['VALORE TAX DA TOGLIERE€']
+        fig_pie = px.pie(names=['Netto', 'Tasse'], values=[netto, tasse],
                          color_discrete_sequence=['#228B22', '#FF4500'])
         st.plotly_chart(fig_pie, use_container_width=True)
 
     # --- TABELLA ---
-    st.subheader("📑 Storico Completo")
-    st.dataframe(df)
+    st.subheader("📋 Storico Dati Completo")
+    st.dataframe(df, use_container_width=True)
+
+    # --- EXPORT ---
+    csv = df.to_csv(index=False).encode('utf-8')
+    st.download_button("📥 Scarica in CSV", data=csv, file_name="jackpot_report.csv")
 
 except Exception as e:
-    st.error(f"Miao! Qualcosa non va nel file dati.csv: {e}")
-    st.info("Assicurati che il file si chiami esattamente 'dati.csv' su GitHub.")
+    st.error(f"Errore: {e}")
+    st.info("Assicurati che il file su GitHub si chiami esattamente: dati.csv")
